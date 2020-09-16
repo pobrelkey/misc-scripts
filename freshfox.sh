@@ -5,7 +5,7 @@ PROFILE_NAME=default
 USE_MASTER=''
 USE_FIREJAIL=''
 
-while getopts "hmp:ld:" opt; do
+while getopts "hmjp:ld:" opt; do
 	case ${opt} in
 		h)
 			echo 
