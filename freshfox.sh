@@ -4,8 +4,9 @@ FRESHFOX_DIR="${HOME}/.local/share/freshfox/"
 PROFILE_NAME=default
 USE_MASTER=''
 USE_FIREJAIL=''
+XEPHYR_SIZE=1280x960
 
-while getopts "hmjp:ld:" opt; do
+while getopts "hmjp:ld:w:" opt; do
 	case ${opt} in
 		h)
 			echo 
@@ -16,6 +17,7 @@ while getopts "hmjp:ld:" opt; do
 			echo "                           (default template profile is called 'default')"
 			echo "    -m              Use the profile's master copy, not an ephemeral copy"
 			echo "    -j              Use firejail to increase browser security"
+			echo "    -w              Use custom firejail window size (default: ${XEPHYR_SIZE})"
 			echo "    -l              List template profiles"
 			echo "    -d <profile>    Delete the given template profile"
 			echo "    -h              Display this help message"
@@ -36,6 +38,9 @@ while getopts "hmjp:ld:" opt; do
 			;;
 		j)
 			USE_FIREJAIL=1
+			;;
+		w)
+			XEPHYR_SIZE=${OPTARG:-1280x960}
 			;;
 		\?)
 			echo "Invalid Option: -$OPTARG" 1>&2
@@ -82,10 +87,14 @@ if [ "x${USE_FIREJAIL}" == 'x' ]
 then
 	firefox --no-remote --profile "${PROFILE_DIR}" "$@"
 else
-	# TODO: X11 security using Xephyr (Xpra fails on my box)
 	firejail --name="freshfox-${PROFILE_NAME}" \
+                --x11=xephyr --xephyr-screen=${XEPHYR_SIZE/[^0-9]/x} \
                 --whitelist="${PROFILE_DIR}" \
-		firefox --no-remote --profile "${PROFILE_DIR}" "$@"
+		firefox \
+			--no-remote \
+			--window-size ${XEPHYR_SIZE/[^0-9]/,} \
+			--profile "${PROFILE_DIR}" \
+			"$@"
 fi
 
 
