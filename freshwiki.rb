@@ -12,17 +12,18 @@ require 'rdoc'
 require 'webrick'
 
 port = (ENV['FRESHWIKI_PORT'] || 8484).to_i
-db_file = ENV['FRESHWIKI_DB']
+db_file = ENV['FRESHWIKI_DB'] || "#{ENV['HOME']}/.local/share/freshwiki/default"
 addr = ENV['FRESHWIKI_ADDR'] || '0.0.0.0'
-open_browser = false
+open_browser = true
 
 OptionParser.new do |opts|
-  opts.on('-D NAME', '--profile NAME', 'Store data in ~/.local/share/freshwiki/NAME') {|fn| db_file = "#{ENV['HOME']}/.local/share/freshwiki/#{fn}" }
-  opts.on('-d FILE', '--database FILE', 'Store data in FILE (default: in-memory storage)') {|fn| db_file = fn }
-  opts.on('-l', '--localhost', "Bind to 127.0.0.1 (default: #{addr})") { addr = '127.0.0.1' } 
-  opts.on('-b', '--browser', 'Open wiki in browser') { open_browser = true } 
-  opts.on('-p PORT', '--port PORT', "Set port number (default: #{port})") {|p| port = p }
-  opts.on('-h', '--help', 'Print help') { puts opts; exit }
+  opts.on('-n NAME', '--name NAME',  'Store data in ~/.local/share/freshwiki/NAME') {|fn| db_file = "#{ENV['HOME']}/.local/share/freshwiki/#{fn}" }
+  opts.on('-e',      '--ephemeral',  'Ephemeral wiki, don\'t save to disk') {|fn| db_file = nil }
+  opts.on('-f FILE', '--file FILE',  "Store data in FILE (default: #{db_file})") {|fn| db_file = fn }
+  opts.on('-l',      '--localhost',  "Bind to 127.0.0.1 (default: #{addr})") { addr = '127.0.0.1' } 
+  opts.on('-B',      '--no-browser', 'Don\'t open wiki in browser') { open_browser = false } 
+  opts.on('-p PORT', '--port PORT',  "Set port number (default: #{port})") {|p| port = p }
+  opts.on('-h',      '--help',       'Print help') { puts opts; exit }
 end.parse!
 
 server = WEBrick::HTTPServer.new(:BindAddress=>addr, :Port=>port)
@@ -132,6 +133,6 @@ trap 'INT' do
   db.close if db.is_a?(GDBM)
 end
 
-fork { sleep 1; system('xdg-open', "http://#{addr}:#{port}/") } if open_browser
+fork { sleep 1; system('xdg-open', "http://#{(addr=='0.0.0.0')?'127.0.0.1':addr}:#{port}/") } if open_browser
 
 server.start
