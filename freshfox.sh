@@ -1,12 +1,13 @@
 #!/bin/bash
 
 FRESHFOX_DIR="${HOME}/.local/share/freshfox/"
+BROWSER='firefox'
 PROFILE_NAME=default
 USE_MASTER=''
 USE_FIREJAIL=''
 XEPHYR_SIZE=1280x960
 
-while getopts "hmjp:ld:w:" opt; do
+while getopts "hmjcp:ld:w:" opt; do
 	case ${opt} in
 		h)
 			echo 
@@ -17,6 +18,7 @@ while getopts "hmjp:ld:w:" opt; do
 			echo "                           (default template profile is called 'default')"
 			echo "    -m              Use the profile's master copy, not an ephemeral copy"
 			echo "    -j              Use firejail to increase browser security"
+			echo "    -c              Use Chromium, not Firefox"
 			echo "    -w              Use custom firejail window size (default: ${XEPHYR_SIZE})"
 			echo "    -l              List template profiles"
 			echo "    -d <profile>    Delete the given template profile"
@@ -31,13 +33,16 @@ while getopts "hmjp:ld:w:" opt; do
 			PROFILE_NAME=${OPTARG:-default}
 			;;
 		l)
-			exec ls "${FRESHFOX_DIR}"
+			exec ls "${FRESHFOX_DIR}/"
 			;;
 		d)
 			exec rm -r "${FRESHFOX_DIR}/${OPTARG:-default}"
 			;;
 		j)
 			USE_FIREJAIL=1
+			;;
+		c)
+			BROWSER='chromium'
 			;;
 		w)
 			XEPHYR_SIZE=${OPTARG:-1280x960}
@@ -56,7 +61,8 @@ shift $((OPTIND -1))
 
 cd
 
-PROFILE_DIR="${FRESHFOX_DIR}/${PROFILE_NAME}"
+PROFILE_DIR="${FRESHFOX_DIR}/${PROFILE_NAME}/${BROWSER}"
+
 
 if [ "x${USE_MASTER}" == 'x' ]
 then
@@ -71,30 +77,56 @@ then
 			--exclude='/*backups' \
 			--exclude='/*cache*' \
 			--exclude='/*Cache*' \
-			--exclude='/cookies*' \
-			--exclude='/crashes' \
+			--exclude='/crash*' \
+			--exclude='/Crash*' \
 			--exclude='/formhistory*' \
-			--exclude='/lock' \
 			--exclude='/thumbnails*' \
 			"${PROFILE_DIR}/" "${SCRATCH_DIR}/"
+			#--exclude='/cookies*' \
+			#--exclude='/Cookies*' \
+			#--exclude='/lock' \
+			#--exclude='/LOCK' \
+			#--exclude='/Local Storage' \
 	fi
 	PROFILE_DIR="${SCRATCH_DIR}"
 else
 	mkdir -p ${PROFILE_DIR}
 fi
 
-if [ "x${USE_FIREJAIL}" == 'x' ]
+if [ "${BROWSER}" == 'firefox' ]
 then
-	firefox --no-remote --profile "${PROFILE_DIR}" "$@"
+	if [ "x${USE_FIREJAIL}" == 'x' ]
+	then
+		firefox --no-remote --profile "${PROFILE_DIR}" "$@"
+	else
+		firejail --name="freshfox-${PROFILE_NAME}" \
+					--x11=xephyr --xephyr-screen=${XEPHYR_SIZE/[^0-9]/x} \
+					--whitelist="${PROFILE_DIR}" \
+			firefox \
+				--no-remote \
+				--window-size ${XEPHYR_SIZE/[^0-9]/,} \
+				--profile "${PROFILE_DIR}" \
+				"$@"
+	fi
+elif [ "${BROWSER}" == 'chromium' ]
+then
+	if [ "x${USE_FIREJAIL}" == 'x' ]
+	then
+		perl -i -pe 's/"window_placement":\{.*?\},/' "${PROFILE_DIR}/Default/Preferences"
+		chromium --user-data-dir="${PROFILE_DIR}" "$@"
+	else
+		XEPHYR_MAX_X=$((${XEPHYR_SIZE%%[^0-9]*}-1))
+		XEPHYR_MAX_Y=$((${XEPHYR_SIZE##*[^0-9]}-1))
+		perl -i -pe "s/(?<=\"window_placement\":\\{).*?(?=\\})/\"maximized\":false,\"left\":0,\"top\":0,\"work_area_left\":0,\"work_area_top\":0,\"right\":${XEPHYR_MAX_X},\"work_area_right\":${XEPHYR_MAX_X},\"bottom\":${XEPHYR_MAX_Y},\"work_area_bottom\":${XEPHYR_MAX_Y}/g" "${PROFILE_DIR}/Default/Preferences"
+		firejail --name="freshfox-${PROFILE_NAME}" \
+					--x11=xephyr --xephyr-screen=${XEPHYR_SIZE/[^0-9]/x} \
+					--whitelist="${PROFILE_DIR}" \
+			chromium \
+				--user-data-dir="${PROFILE_DIR}" \
+				"$@"
+	fi
 else
-	firejail --name="freshfox-${PROFILE_NAME}" \
-                --x11=xephyr --xephyr-screen=${XEPHYR_SIZE/[^0-9]/x} \
-                --whitelist="${PROFILE_DIR}" \
-		firefox \
-			--no-remote \
-			--window-size ${XEPHYR_SIZE/[^0-9]/,} \
-			--profile "${PROFILE_DIR}" \
-			"$@"
+	echo "unrecognized browser: ${BROWSER}"
+	exit 1
 fi
-
 
