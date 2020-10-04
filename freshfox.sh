@@ -7,7 +7,7 @@ USE_MASTER=''
 USE_FIREJAIL=''
 XEPHYR_SIZE=1280x960
 
-while getopts "hmjcp:ld:w:" opt; do
+while getopts "hmjxcp:ld:w:" opt; do
 	case ${opt} in
 		h)
 			echo 
@@ -18,6 +18,7 @@ while getopts "hmjcp:ld:w:" opt; do
 			echo "                           (default template profile is called 'default')"
 			echo "    -m              Use the profile's master copy, not an ephemeral copy"
 			echo "    -j              Use firejail to increase browser security"
+			echo "    -x              Use firejail with X11 sandboxing"
 			echo "    -c              Use Chromium, not Firefox"
 			echo "    -w              Use custom firejail window size (default: ${XEPHYR_SIZE})"
 			echo "    -l              List template profiles"
@@ -38,8 +39,11 @@ while getopts "hmjcp:ld:w:" opt; do
 		d)
 			exec rm -r "${FRESHFOX_DIR}/${OPTARG:-default}"
 			;;
+		x)
+			USE_FIREJAIL=x11
+			;;
 		j)
-			USE_FIREJAIL=1
+			USE_FIREJAIL=nox11
 			;;
 		c)
 			BROWSER='chromium'
@@ -62,7 +66,6 @@ shift $((OPTIND -1))
 cd
 
 PROFILE_DIR="${FRESHFOX_DIR}/${PROFILE_NAME}/${BROWSER}"
-
 
 if [ "x${USE_MASTER}" == 'x' ]
 then
@@ -95,31 +98,45 @@ fi
 
 if [ "${BROWSER}" == 'firefox' ]
 then
+	if [ "_${USE_FIREJAIL}" == '_x11' ]
+	then
+		FIREJAIL_X11_OPTS="--x11=xephyr --xephyr-screen=${XEPHYR_SIZE/[^0-9]/x}"
+		FIREFOX_X11_OPTS="--window-size ${XEPHYR_SIZE/[^0-9]/,}"
+	else
+		FIREJAIL_X11_OPTS=
+		FIREFOX_X11_OPTS=
+	fi
 	if [ "x${USE_FIREJAIL}" == 'x' ]
 	then
 		firefox --no-remote --profile "${PROFILE_DIR}" "$@"
 	else
 		firejail --name="freshfox-${PROFILE_NAME}" \
-					--x11=xephyr --xephyr-screen=${XEPHYR_SIZE/[^0-9]/x} \
+					${FIREJAIL_X11_OPTS} \
 					--whitelist="${PROFILE_DIR}" \
 			firefox \
 				--no-remote \
-				--window-size ${XEPHYR_SIZE/[^0-9]/,} \
+				${FIREFOX_X11_OPTS} \
 				--profile "${PROFILE_DIR}" \
 				"$@"
 	fi
 elif [ "${BROWSER}" == 'chromium' ]
 then
-	if [ "x${USE_FIREJAIL}" == 'x' ]
+	if [ "_${USE_FIREJAIL}" == '_x11' ]
 	then
-		perl -i -pe 's/"window_placement":\{.*?\},/' "${PROFILE_DIR}/Default/Preferences"
-		chromium --user-data-dir="${PROFILE_DIR}" "$@"
-	else
 		XEPHYR_MAX_X=$((${XEPHYR_SIZE%%[^0-9]*}-1))
 		XEPHYR_MAX_Y=$((${XEPHYR_SIZE##*[^0-9]}-1))
 		perl -i -pe "s/(?<=\"window_placement\":\\{).*?(?=\\})/\"maximized\":false,\"left\":0,\"top\":0,\"work_area_left\":0,\"work_area_top\":0,\"right\":${XEPHYR_MAX_X},\"work_area_right\":${XEPHYR_MAX_X},\"bottom\":${XEPHYR_MAX_Y},\"work_area_bottom\":${XEPHYR_MAX_Y}/g" "${PROFILE_DIR}/Default/Preferences"
+		FIREJAIL_X11_OPTS="--x11=xephyr --xephyr-screen=${XEPHYR_SIZE/[^0-9]/x}"
+	else
+		perl -i -pe 's/"window_placement":\{.*?\},/' "${PROFILE_DIR}/Default/Preferences"
+		FIREJAIL_X11_OPTS=
+	fi
+	if [ "x${USE_FIREJAIL}" == 'x' ]
+	then
+		chromium --user-data-dir="${PROFILE_DIR}" "$@"
+	else
 		firejail --name="freshfox-${PROFILE_NAME}" \
-					--x11=xephyr --xephyr-screen=${XEPHYR_SIZE/[^0-9]/x} \
+					${FIREJAIL_X11_OPTS} \
 					--whitelist="${PROFILE_DIR}" \
 			chromium \
 				--user-data-dir="${PROFILE_DIR}" \
