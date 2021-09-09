@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 
+# Print out the local IP address your machine uses to access some host.
+#
+# If no host if specified, prints the IP address used to access
+# Google's DNS server, which should give you the local address 
+# of your the default interface.
+# 
+# Note that this will print out your local IP address, not taking
+# account of any layers of NAT between you and other parties you
+# may want to access your machine.
+#
+# Written in batteries-included Python.
+
 import argparse, os, socket
 
 remote_host = os.environ.get('MYIP_REMOTE_HOST', '8.8.8.8')

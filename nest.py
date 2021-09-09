@@ -1,5 +1,44 @@
 #!/usr/bin/env python3
 
+
+# Start an alternate VNC-based desktop session on your local machine 
+# to which you and others can connect; or, start a "nested" desktop 
+# which runs in a window on your primary desktop.
+#
+# Why is this useful?
+# * If your team's chat software (Teams, Slack) only offers the option
+#   to share your entire desktop, but your desktop is huge (2x4K monitors
+#   in my case) - gives you a smaller desktop where sharing it to others
+#   isn't considered a DoS attack.
+# * If you're on a smaller monitor, do desktop sharing frequently, but 
+#   would prefer everything you do weren't in view of the remote user(s) -
+#   gives you a "sandbox" which can be shared while your main desktop 
+#   remains out of view.
+#
+# Example invocation:
+#
+#     nest.sh --type=vnc --gemoetry=1920x1080 &
+#
+# Run `nest.sh --help` for slightly more documentation.
+#
+# Some apps (web browsers in particular) won't play nicely with multiple 
+# desktop sessions running on your machine at once - for example, you'll 
+# open documents/links in one desktop session and they'll pop up in a 
+# different session.  I work around this for web browsers by using separate
+# ephemeral profiles for each alternate desktop (for which see freshfox.sh,
+# in this repository).
+#
+# Uses JWM as a window manager by default - it's simple, behaves in a
+# civilized manner, and you can run multiple instances at once without harm.
+#
+# Clipboard sync for XNest/Xephyr based desktops relies on xclipsync,
+# which is a git submodule of this repository - make sure you have this
+# checked out and have tk installed (apt-get install tk), which it needs.
+#
+# Has several more dependencies (search the source for "apt-get" 
+# to list them all) - you won't need to install all of them.
+
+
 import argparse, atexit, os, re, shlex, socket, subprocess, sys, time
 import psutil # apt-get install python3-psutil
 
@@ -77,17 +116,17 @@ def parse_size(size_str):
 
 
 parser = argparse.ArgumentParser(description='Start a nested desktop')
-parser.add_argument('-s', '--size', '--geometry', type=parse_size, dest='size', default=DEFAULT_SIZE,
+parser.add_argument('-s', '--size', '--geometry', type=parse_size, dest='size', metavar='WIDTHxHEIGHT', default=DEFAULT_SIZE,
     help=('Desktop size in pixels (default: %dx%d)' % DEFAULT_SIZE))
-parser.add_argument('-c', '--command', '--cmd', type=str, nargs='*', dest='commands',
+parser.add_argument('-c', '--command', '--cmd', type=str, nargs='*', dest='commands', metavar='CMDLINE',
     help='Command(s) to run in new desktop (default: %s)' % DEFAULT_CMD)
-parser.add_argument('-x', '--xserver', '--server', '--type', type=validate_xserver, dest='xserver', default=DEFAULT_SERVER,
+parser.add_argument('-x', '--xserver', '--server', '--type', type=validate_xserver, dest='xserver', metavar='TYPE', default=DEFAULT_SERVER,
     help='X11 server to use (default: %s)' % DEFAULT_SERVER)
-parser.add_argument('-w', '--window-manager', '--wm', type=str, dest='wm', default=DEFAULT_WM,
+parser.add_argument('-w', '--window-manager', '--wm', type=str, dest='wm', metavar='WMGR', default=DEFAULT_WM,
     help='Window manager to use on new desktop (default: %s)' % DEFAULT_WM)
-parser.add_argument('-d', '--dpi', type=int, dest='dpi', default=DEFAULT_DPI,
+parser.add_argument('-d', '--dpi', type=int, dest='dpi', metavar='DPI', default=DEFAULT_DPI,
     help='Resolution in dots per inch (default: %s)' % DEFAULT_DPI)
-parser.add_argument('-t', '--title', type=str, dest='title', default=None,
+parser.add_argument('-t', '--title', type=str, dest='title', metavar='TITLE', default=None,
     help='Title of nested desktop')
 args = parser.parse_args()
 

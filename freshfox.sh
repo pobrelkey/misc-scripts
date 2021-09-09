@@ -128,7 +128,7 @@ then
 		perl -i -pe "s/(?<=\"window_placement\":\\{).*?(?=\\})/\"maximized\":false,\"left\":0,\"top\":0,\"work_area_left\":0,\"work_area_top\":0,\"right\":${XEPHYR_MAX_X},\"work_area_right\":${XEPHYR_MAX_X},\"bottom\":${XEPHYR_MAX_Y},\"work_area_bottom\":${XEPHYR_MAX_Y}/g" "${PROFILE_DIR}/Default/Preferences"
 		FIREJAIL_X11_OPTS="--x11=xephyr --xephyr-screen=${XEPHYR_SIZE/[^0-9]/x}"
 	else
-		perl -i -pe 's/"window_placement":\{.*?\},/' "${PROFILE_DIR}/Default/Preferences"
+		perl -i -pe 's/"window_placement":\{.*?\},//' "${PROFILE_DIR}/Default/Preferences"
 		FIREJAIL_X11_OPTS=
 	fi
 	if [ "x${USE_FIREJAIL}" == 'x' ]
