@@ -53,16 +53,17 @@ DEFAULT_SERVER='xephyr'
 
 XCLIPSYNC_PATH=os.path.join(os.path.dirname(__file__), 'xclipsync', 'xclipsync')
 
-def server_xtightvnc(size, dpi, title, display, cmds):
+def server_xtightvnc(size, dpi, title, display, local, cmds):
     # apt-get install tightvncserver
     print('>>>> starting %dx%d TightVnc server on port %d' % (*size, VNC_PORTS_BASE+display))
     return ('Xtightvnc', 
         '-s', '10000', 
         '-dpi', str(dpi), 
         '-geometry', '%dx%d' % size, 
-        '-desktop', title, 
-        ':%d' % display)
-def server_xtigervnc(size, dpi, title, display, cmds):
+        '-desktop', title) + \
+        (('-interface', 'localhost') if local else ()) + \
+        (':%d' % display,)
+def server_xtigervnc(size, dpi, title, display, local, cmds):
     # apt-get install tigervnc-standalone-server
     print('>>>> starting %dx%d TigerVnc server on port %d' % (*size, VNC_PORTS_BASE+display))
     return ('Xtigervnc', 
@@ -71,9 +72,10 @@ def server_xtigervnc(size, dpi, title, display, cmds):
         '-geometry', '%dx%d' % size, 
         '-desktop', title, 
         '-ZlibLevel', '3', 
-        '-PasswordFile', '%s/.vnc/passwd' % os.environ.get('HOME'), 
-        ':%d' % display)
-def server_xephyr(size, dpi, title, display, cmds):
+        '-PasswordFile', '%s/.vnc/passwd' % os.environ.get('HOME')) + \
+        (('-interface', 'localhost') if local else ()) + \
+        (':%d' % display,)
+def server_xephyr(size, dpi, title, display, local, cmds):
     # apt-get install xserver-xephyr
     print('>>>> starting %dx%d Xephyr server on :%d' % (*size, display))
     cmds += [XCLIPSYNC_PATH]
@@ -84,7 +86,7 @@ def server_xephyr(size, dpi, title, display, cmds):
         '-screen', '%dx%d' % size, 
         '-title', title, 
         ':%d' % display)
-def server_xnest(size, dpi, title, display, cmds):
+def server_xnest(size, dpi, title, display, local, cmds):
     # apt-get install xnest
     print('>>>> starting %dx%d Xnest server on :%d' % (*size, display))
     cmds += [XCLIPSYNC_PATH]
@@ -128,6 +130,8 @@ parser.add_argument('-d', '--dpi', type=int, dest='dpi', metavar='DPI', default=
     help='Resolution in dots per inch (default: %s)' % DEFAULT_DPI)
 parser.add_argument('-t', '--title', type=str, dest='title', metavar='TITLE', default=None,
     help='Title of nested desktop')
+parser.add_argument('-l', '--local', dest='local', action='store_true',
+    help='VNC should listen on loopback interface, not all interfaces')
 args = parser.parse_args()
 
 
@@ -136,7 +140,7 @@ commands = list(args.commands if (args.commands is not None and len(args.command
 XN_RX = re.compile(r'^X(\d+)$')
 display = min(set(range(0,100)) - set([int(XN_RX.match(x).group(1)) for x in os.listdir('/tmp/.X11-unix/') if XN_RX.match(x)]))
 title = args.title or ('nested desktop %d: %s@%s' % (display, os.environ.get('USER'), os.uname().nodename))
-xserver_args = SERVERS[args.xserver](args.size, args.dpi, title, display, commands)
+xserver_args = SERVERS[args.xserver](args.size, args.dpi, title, display, args.local, commands)
 
 with subprocess.Popen(xserver_args, 
         pass_fds=(sys.stdout.fileno(),sys.stderr.fileno())) as xserver:
