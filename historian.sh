@@ -34,19 +34,21 @@ find "${@:-.}" -name .git \
 		require "stringio"
 		require "date"
 
-		Commit = Struct.new(:date,:commit,:repos,:author,:comment)
+		Commit = Struct.new(:date,:commit,:repos,:repos_short,:author,:comment)
 
 		AUTHOR_REGEXP  = ENV["AUTHOR_REGEXP"].nil? ? nil : Regexp.compile(ENV["AUTHOR_REGEXP"])
 		COMMENT_REGEXP = ENV["COMMENT_REGEXP"].nil? ? nil : Regexp.compile(ENV["COMMENT_REGEXP"])
+		REPOS_REGEXP   = ENV["REPOS_REGEXP"].nil? ? nil : Regexp.compile(ENV["REPOS_REGEXP"])
 		DATE_MIN       = ENV["DATE_MIN"].nil? ? nil : DateTime.parse(ENV["DATE_MIN"])
 		DATE_MAX       = ENV["DATE_MAX"].nil? ? nil : DateTime.parse(ENV["DATE_MAX"])
 
 		def is_match(commit)
 			return (
-				(AUTHOR_REGEXP.nil? || commit.author =~ AUTHOR_REGEXP) &&
-				(COMMENT_REGEXP.nil? || commit.comment =~ COMMENT_REGEXP) &&
-				(DATE_MIN.nil? || commit.date >= DATE_MIN) &&
-				(DATE_MAX.nil? || commit.date <= DATE_MAX)
+				(AUTHOR_REGEXP.nil? || (!commit.author.nil? && commit.author =~ AUTHOR_REGEXP)) &&
+				(COMMENT_REGEXP.nil? || (!commit.comment.nil? && commit.comment.string =~ COMMENT_REGEXP)) &&
+				(REPOS_REGEXP.nil? || (!commit.repos.nil? && commit.repos =~ REPOS_REGEXP)) &&
+				(DATE_MIN.nil? || (!commit.date.nil? && commit.date >= DATE_MIN)) &&
+				(DATE_MAX.nil? || (!commit.date.nil? && commit.date <= DATE_MAX))
 			)
 		end
 
@@ -81,9 +83,12 @@ find "${@:-.}" -name .git \
 			end
 		end
 		all << c if is_match(c)
+		all.each do |c| 
+			c.comment = c.comment.string.strip.gsub(/^\s+/,"")
+			c.repos_short = c.repos.sub(/^.+\//,"").sub(/\.git$/,"") if !c.repos.nil?
+		end
 		CSV {|out|
-			out << %w(Date Commit Repository Author Comment)
-			all.each{|c| c.comment = c.comment.string.strip.gsub(/^\s+/,"") }
+			out << %w(Date Commit Repository Repos_Short Author Comment)
 			all.sort {|a,b| a.to_a <=> b.to_a }.uniq.each {|c| out << c.to_a }
 		}
 	'
