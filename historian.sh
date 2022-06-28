@@ -28,67 +28,67 @@ find "${@:-.}" -name .git \
 		done
 	) \
 	| parallel --will-cite -I{} --group --colsep '\|' \
-		sh -c "'cd \"\$(perl -e \"print pack(\\\"H*\\\",\\\"{2}\\\")\")\" && git log | perl -ne \"print ; print \\\"Repository: \\\".pack(\\\"H*\\\",\\\"{1}\\\").\\\"\\\n\\\" if /^commit [0-9a-f]+$/\" ; echo'" \
-	| ruby -e '
-		require "csv"
-		require "stringio"
-		require "date"
+		bash -c \''cd "$(basenc -d --base16 <<<{2})" && git log | ruby -e '\''\'\'''\''
+			require "csv"
+			require "stringio"
+			require "date"
 
-		Commit = Struct.new(:date,:commit,:repos,:repos_short,:author,:comment)
+			Commit = Struct.new(:date,:commit,:repos,:repos_short,:author,:comment)
 
-		AUTHOR_REGEXP  = ENV["AUTHOR_REGEXP"].nil? ? nil : Regexp.compile(ENV["AUTHOR_REGEXP"])
-		COMMENT_REGEXP = ENV["COMMENT_REGEXP"].nil? ? nil : Regexp.compile(ENV["COMMENT_REGEXP"])
-		REPOS_REGEXP   = ENV["REPOS_REGEXP"].nil? ? nil : Regexp.compile(ENV["REPOS_REGEXP"])
-		DATE_MIN       = ENV["DATE_MIN"].nil? ? nil : DateTime.parse(ENV["DATE_MIN"])
-		DATE_MAX       = ENV["DATE_MAX"].nil? ? nil : DateTime.parse(ENV["DATE_MAX"])
+			REPOS       = ["{1}"].pack("H*")
+			REPOS_SHORT = REPOS.sub(/^.+\//,"").sub(/\.git$/,"")
 
-		def is_match(commit)
-			return (
-				(AUTHOR_REGEXP.nil? || (!commit.author.nil? && commit.author =~ AUTHOR_REGEXP)) &&
-				(COMMENT_REGEXP.nil? || (!commit.comment.nil? && commit.comment.string =~ COMMENT_REGEXP)) &&
-				(REPOS_REGEXP.nil? || (!commit.repos.nil? && commit.repos =~ REPOS_REGEXP)) &&
-				(DATE_MIN.nil? || (!commit.date.nil? && commit.date >= DATE_MIN)) &&
-				(DATE_MAX.nil? || (!commit.date.nil? && commit.date <= DATE_MAX))
-			)
-		end
+			AUTHOR_REGEXP  = ENV["AUTHOR_REGEXP"].nil? ? nil : Regexp.compile(ENV["AUTHOR_REGEXP"])
+			COMMENT_REGEXP = ENV["COMMENT_REGEXP"].nil? ? nil : Regexp.compile(ENV["COMMENT_REGEXP"])
+			REPOS_REGEXP   = ENV["REPOS_REGEXP"].nil? ? nil : Regexp.compile(ENV["REPOS_REGEXP"])
+			DATE_MIN       = ENV["DATE_MIN"].nil? ? nil : DateTime.parse(ENV["DATE_MIN"])
+			DATE_MAX       = ENV["DATE_MAX"].nil? ? nil : DateTime.parse(ENV["DATE_MAX"])
 
-		all = []
-		c = Commit.new()
-		STDIN.each_line do |line|
-			if line =~ /^commit ([0-9a-f]+)$/
-				if !c.commit.nil?
-					all << c if is_match(c)
-					c = Commit.new()
-				end
-				c.commit = $1
-			elsif !c.commit.nil?
-				if c.comment.nil?
-					if line =~ /^([-\w]+):\s*(\S.*?)\s*$/
-						key, value = $1.downcase, $2
-						case key
-							when "author"
-								c.author = value
-							when "repository"
-								c.repos = value
-							when "date"
-								c.date = DateTime.parse(value)
+			def is_match(commit)
+				return (
+					(AUTHOR_REGEXP.nil? || (!commit.author.nil? && commit.author =~ AUTHOR_REGEXP)) &&
+					(COMMENT_REGEXP.nil? || (!commit.comment.nil? && commit.comment.string =~ COMMENT_REGEXP)) &&
+					(REPOS_REGEXP.nil? || (!commit.repos.nil? && commit.repos =~ REPOS_REGEXP)) &&
+					(DATE_MIN.nil? || (!commit.date.nil? && commit.date >= DATE_MIN)) &&
+					(DATE_MAX.nil? || (!commit.date.nil? && commit.date <= DATE_MAX))
+				)
+			end
+			
+			def dump(c)
+				return if !is_match(c)
+				c.comment = c.comment.string.strip.gsub(/^\s+/,"").gsub(/[\s\r\n]+/," ")
+				c.repos = REPOS
+				c.repos_short = REPOS_SHORT
+				puts c.to_a.to_csv
+			end
+
+			c = Commit.new()
+			STDIN.each_line do |line|
+				if line =~ /^commit ([0-9a-f]+)$/
+					if !c.commit.nil?
+						dump(c)
+						c = Commit.new()
+					end
+					c.commit = $1
+				elsif !c.commit.nil?
+					if c.comment.nil?
+						if line =~ /^([-\w]+):\s*(\S.*?)\s*$/
+							key, value = $1.downcase, $2
+							case key
+								when "author"
+									c.author = value
+								when "date"
+									c.date = DateTime.parse(value)
+							end
+						elsif line =~ /\S/
+							c.comment = StringIO.new()
 						end
-					elsif line =~ /\S/
-						c.comment = StringIO.new()
+					end
+					if !c.comment.nil?
+						c.comment << line
 					end
 				end
-				if !c.comment.nil?
-					c.comment << line
-				end
 			end
-		end
-		all << c if is_match(c)
-		all.each do |c| 
-			c.comment = c.comment.string.strip.gsub(/^\s+/,"")
-			c.repos_short = c.repos.sub(/^.+\//,"").sub(/\.git$/,"") if !c.repos.nil?
-		end
-		CSV {|out|
-			out << %w(Date Commit Repository Repos_Short Author Comment)
-			all.sort {|a,b| a.to_a <=> b.to_a }.uniq.each {|c| out << c.to_a }
-		}
-	'
+			dump(c)
+		'\''\'\'''\'\' \
+	| ( echo 'Date,Commit,Repos,ReposShort,Author,Comment' ; sort | uniq )
