@@ -2,16 +2,17 @@
 
 #
 # Go through any git repositories under the current directory,
+# (or other directories as specified by the arguments),
 # dump out a CSV of "interesting" commits.
 #
-# TODO: nice arg parsing - for now set params using env vars:
+# TODO: better arg parsing - for now set "flags" using env vars...
 #    AUTHOR_REGEXP - regexp to match against author name+email
 #    COMMENT_REGEXP - regexp to match against comment text
 #    DATE_MIN - earliest date/time for any commits
 #    DATE_MAX - latest date/time for any commits
 #
 
-find . -name .git \
+find "${@:-.}" -name .git \
 	| (
 		while 
 			read GITDIR && [ -n "${GITDIR}" ]
