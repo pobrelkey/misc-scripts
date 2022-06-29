@@ -22,13 +22,13 @@ find "${@:-.}" -name .git \
 			GITURL="$(git remote get-url origin 2>/dev/null)"
 			if [ -n "${GITURL}" ]
 			then
-				echo "$(echo -n "${GITURL}" | basenc --base16 -w 0)|$(echo -n "${REPODIR}" | basenc --base16 -w 0)"
+				echo "$(echo -n "${GITURL}" | perl -e 'print unpack("H*",<>)')|$(echo -n "${REPODIR}" | perl -e 'print unpack("H*",<>)')"
 			fi
 			popd >/dev/null
 		done
 	) \
-	| parallel --will-cite -I{} --group --colsep '\|' \
-		bash -c \''cd "$(basenc -d --base16 <<<{2})" && git log | ruby -e '\''\'\'''\''
+	| parallel --will-cite -I{} --line-buffer --colsep '\|' \
+		bash -c \''cd "$(perl -e "print pack(\"H*\",\"{2}\")")" && git log | ruby -e '\''\'\'''\''
 			require "csv"
 			require "stringio"
 			require "date"
@@ -56,7 +56,7 @@ find "${@:-.}" -name .git \
 			
 			def dump(c)
 				return if !is_match(c)
-				c.comment = c.comment.string.strip.gsub(/^\s+/,"").gsub(/[\s\r\n]+/," ")
+				c.comment = c.comment.string.gsub(/^\s+/,"").gsub(/[\s\r\n]+/," ").strip if !c.comment.nil?
 				c.repos = REPOS
 				c.repos_short = REPOS_SHORT
 				puts c.to_a.to_csv
