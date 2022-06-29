@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
 #
-# Go through any git repositories under the current directory,
-# (or other directories as specified by the arguments),
-# dump out a CSV of "interesting" commits.
+#  Git Historian
+#
+#  Go through any git repositories under the current directory
+#  (or other directories as specified by the arguments),
+#  dump out a CSV of "interesting" commits.
 #
 
 usage() {
@@ -13,19 +15,21 @@ usage() {
 	echo "Usage: historian.sh [options] [places to search for Git repositories]"
 	echo
 	echo "Options:"
-	echo "    -a REGEX     Only return commits with author matching REGEX"
-	echo "    -c REGEX     Only return commits with commit message matching REGEX"
-	echo "    -r REGEX     Only return commits with repository URL matching REGEX"
-	echo "    -s DATETIME  Only return commits since given DATETIME"
-	echo "    -u DATETIME  Only return commits until given DATETIME"
+	echo "    -a REGEX     Only list commits with author matching REGEX"
+	echo "    -m REGEX     Only list commits with commit message matching REGEX"
+	echo "    -r REGEX     Only list commits with repository URL matching REGEX"
+	echo "    -s DATETIME  Only list commits since given DATETIME"
+	echo "    -u DATETIME  Only list commits until given DATETIME"
 	echo "    -o PATH      Write output to PATH (default: writes to stdout)"
+	echo "    -d FORMAT    Use FORMAT for commit date output (default: %Y-%m-%d)"
 	echo "    -h           Display this help message"
 	echo
 }
 
 OUTPUT_PATH=/dev/stdout
 REPOS_REGEXP="${REPOS_REGEXP:-.}"
-while getopts "a:c:ho:r:s:u:" opt; do
+DATE_FORMAT="${DATE_FORMAT:-%Y-%m-%d}"
+while getopts "a:d:hm:o:r:s:u:" opt; do
 	case ${opt} in
 		h)
 			usage
@@ -34,8 +38,8 @@ while getopts "a:c:ho:r:s:u:" opt; do
 		a)
 			AUTHOR_REGEXP="${OPTARG}"
 			;;
-		c)
-			COMMENT_REGEXP="${OPTARG}"
+		m)
+			MESSAGE_REGEXP="${OPTARG}"
 			;;
 		r)
 			REPOS_REGEXP="${OPTARG}"
@@ -61,9 +65,10 @@ while getopts "a:c:ho:r:s:u:" opt; do
 done
 shift $((OPTIND -1))
 export OPT_AUTHOR_REGEXP="${AUTHOR_REGEXP}"
-export OPT_COMMENT_REGEXP="${COMMENT_REGEXP}"
+export OPT_MESSAGE_REGEXP="${MESSAGE_REGEXP}"
 export OPT_DATE_MIN="${DATE_MIN}"
 export OPT_DATE_MAX="${DATE_MAX}"
+export OPT_DATE_FORMAT="${DATE_FORMAT}"
 
 find "${@:-.}" -name .git \
 	| (
@@ -86,20 +91,22 @@ find "${@:-.}" -name .git \
 			require "stringio"
 			require "date"
 
-			Commit = Struct.new(:date,:commit,:repos,:repos_short,:author,:comment)
+			Commit = Struct.new(:date,:commit,:repos,:repos_basename,:author,:message)
 
-			REPOS       = ["{1}"].pack("H*")
-			REPOS_SHORT = REPOS.sub(/^.+\//,"").sub(/\.git$/,"")
+			REPOS = ["{1}"].pack("H*")
+			REPOS_BASENAME = REPOS.sub(/^.+\//,"").sub(/\.git$/,"")
+
+			DATE_FORMAT = ENV["OPT_DATE_FORMAT"] =~ /\S/ ? ENV["OPT_DATE_FORMAT"] : "%Y-%m-%d"
 
 			AUTHOR_REGEXP  = ENV["OPT_AUTHOR_REGEXP"] =~ /\S/ ? Regexp.compile(ENV["OPT_AUTHOR_REGEXP"]) : nil
-			COMMENT_REGEXP = ENV["OPT_COMMENT_REGEXP"] =~ /\S/ ? Regexp.compile(ENV["OPT_COMMENT_REGEXP"]) : nil
+			MESSAGE_REGEXP = ENV["OPT_MESSAGE_REGEXP"] =~ /\S/ ? Regexp.compile(ENV["OPT_MESSAGE_REGEXP"]) : nil
 			DATE_MIN       = ENV["OPT_DATE_MIN"] =~ /\S/ ? DateTime.parse(ENV["OPT_DATE_MIN"]) : nil
 			DATE_MAX       = ENV["OPT_DATE_MAX"] =~ /\S/ ? DateTime.parse(ENV["OPT_DATE_MAX"]) : nil
 
 			def is_match(commit)
 				return (
 					(AUTHOR_REGEXP.nil? || (!commit.author.nil? && commit.author =~ AUTHOR_REGEXP)) &&
-					(COMMENT_REGEXP.nil? || (!commit.comment.nil? && commit.comment.string =~ COMMENT_REGEXP)) &&
+					(MESSAGE_REGEXP.nil? || (!commit.message.nil? && commit.message.string =~ MESSAGE_REGEXP)) &&
 					(DATE_MIN.nil? || (!commit.date.nil? && commit.date >= DATE_MIN)) &&
 					(DATE_MAX.nil? || (!commit.date.nil? && commit.date <= DATE_MAX))
 				)
@@ -107,9 +114,10 @@ find "${@:-.}" -name .git \
 			
 			def dump(c)
 				return if !is_match(c)
-				c.comment = c.comment.string.gsub(/^\s+/,"").gsub(/[\s\r\n]+/," ").strip if !c.comment.nil?
+				c.date = c.date.strftime(DATE_FORMAT) if !c.date.nil?
+				c.message = c.message.string.gsub(/^\s+/,"").gsub(/[\s\r\n]+/," ").strip if !c.message.nil?
 				c.repos = REPOS
-				c.repos_short = REPOS_SHORT
+				c.repos_basename = REPOS_BASENAME
 				puts c.to_a.to_csv
 			end
 
@@ -122,7 +130,7 @@ find "${@:-.}" -name .git \
 					end
 					c.commit = $1
 				elsif !c.commit.nil?
-					if c.comment.nil?
+					if c.message.nil?
 						if line =~ /^([-\w]+):\s*(\S.*?)\s*$/
 							key, value = $1.downcase, $2
 							case key
@@ -132,14 +140,14 @@ find "${@:-.}" -name .git \
 									c.date = DateTime.parse(value)
 							end
 						elsif line =~ /\S/
-							c.comment = StringIO.new()
+							c.message = StringIO.new()
 						end
 					end
-					if !c.comment.nil?
-						c.comment << line
+					if !c.message.nil?
+						c.message << line
 					end
 				end
 			end
 			dump(c)
 		'\''\'\'''\'\' \
-	| ( echo 'Date,Commit,Repos,ReposShort,Author,Comment' ; sort | uniq ) >"${OUTPUT_PATH}"
+	| ( echo 'Date,Commit,Repos,ReposBasename,Author,Message' ; sort | uniq ) >"${OUTPUT_PATH}"
