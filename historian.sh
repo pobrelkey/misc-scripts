@@ -5,12 +5,65 @@
 # (or other directories as specified by the arguments),
 # dump out a CSV of "interesting" commits.
 #
-# TODO: better arg parsing - for now set "flags" using env vars...
-#    AUTHOR_REGEXP - regexp to match against author name+email
-#    COMMENT_REGEXP - regexp to match against comment text
-#    DATE_MIN - earliest date/time for any commits
-#    DATE_MAX - latest date/time for any commits
-#
+
+usage() {
+	echo
+	echo "HISTORIAN: Generate a CSV summary of Git commits across repositories"
+	echo
+	echo "Usage: historian.sh [options] [places to search for Git repositories]"
+	echo
+	echo "Options:"
+	echo "    -a REGEX     Only return commits with author matching REGEX"
+	echo "    -c REGEX     Only return commits with commit message matching REGEX"
+	echo "    -r REGEX     Only return commits with repository URL matching REGEX"
+	echo "    -s DATETIME  Only return commits since given DATETIME"
+	echo "    -u DATETIME  Only return commits until given DATETIME"
+	echo "    -o PATH      Write output to PATH (default: writes to stdout)"
+	echo "    -h           Display this help message"
+	echo
+}
+
+OUTPUT_PATH=/dev/stdout
+REPOS_REGEXP="${REPOS_REGEXP:-.}"
+while getopts "a:c:ho:r:s:u:" opt; do
+	case ${opt} in
+		h)
+			usage
+			exit 0
+			;;
+		a)
+			AUTHOR_REGEXP="${OPTARG}"
+			;;
+		c)
+			COMMENT_REGEXP="${OPTARG}"
+			;;
+		r)
+			REPOS_REGEXP="${OPTARG}"
+			;;
+		s)
+			DATE_MIN="${OPTARG}"
+			;;
+		u)
+			DATE_MAX="${OPTARG}"
+			;;
+		o)
+			OUTPUT_PATH="${OPTARG}"
+			;;
+		\?)
+			echo "ERROR: invalid Option: -$OPTARG" 1>&2
+			exit 1
+			;;
+		:)
+			echo "ERROR: invalid Option: -$OPTARG requires an argument" 1>&2
+			exit 1
+			;;
+	esac
+done
+shift $((OPTIND -1))
+export OPT_AUTHOR_REGEXP="${AUTHOR_REGEXP}"
+export OPT_COMMENT_REGEXP="${COMMENT_REGEXP}"
+export OPT_DATE_MIN="${DATE_MIN}"
+export OPT_DATE_MAX="${DATE_MAX}"
 
 find "${@:-.}" -name .git \
 	| (
@@ -19,7 +72,7 @@ find "${@:-.}" -name .git \
 		do
 			REPODIR="$(dirname "${GITDIR}")"
 			pushd "${REPODIR}" >/dev/null
-			GITURL="$(git remote get-url origin 2>/dev/null)"
+			GITURL="$(git remote get-url origin 2>/dev/null | grep -P -e "${REPOS_REGEXP}")"
 			if [ -n "${GITURL}" ]
 			then
 				echo "$(echo -n "${GITURL}" | perl -e 'print unpack("H*",<>)')|$(echo -n "${REPODIR}" | perl -e 'print unpack("H*",<>)')"
@@ -38,17 +91,15 @@ find "${@:-.}" -name .git \
 			REPOS       = ["{1}"].pack("H*")
 			REPOS_SHORT = REPOS.sub(/^.+\//,"").sub(/\.git$/,"")
 
-			AUTHOR_REGEXP  = ENV["AUTHOR_REGEXP"].nil? ? nil : Regexp.compile(ENV["AUTHOR_REGEXP"])
-			COMMENT_REGEXP = ENV["COMMENT_REGEXP"].nil? ? nil : Regexp.compile(ENV["COMMENT_REGEXP"])
-			REPOS_REGEXP   = ENV["REPOS_REGEXP"].nil? ? nil : Regexp.compile(ENV["REPOS_REGEXP"])
-			DATE_MIN       = ENV["DATE_MIN"].nil? ? nil : DateTime.parse(ENV["DATE_MIN"])
-			DATE_MAX       = ENV["DATE_MAX"].nil? ? nil : DateTime.parse(ENV["DATE_MAX"])
+			AUTHOR_REGEXP  = ENV["OPT_AUTHOR_REGEXP"] =~ /\S/ ? Regexp.compile(ENV["OPT_AUTHOR_REGEXP"]) : nil
+			COMMENT_REGEXP = ENV["OPT_COMMENT_REGEXP"] =~ /\S/ ? Regexp.compile(ENV["OPT_COMMENT_REGEXP"]) : nil
+			DATE_MIN       = ENV["OPT_DATE_MIN"] =~ /\S/ ? DateTime.parse(ENV["OPT_DATE_MIN"]) : nil
+			DATE_MAX       = ENV["OPT_DATE_MAX"] =~ /\S/ ? DateTime.parse(ENV["OPT_DATE_MAX"]) : nil
 
 			def is_match(commit)
 				return (
 					(AUTHOR_REGEXP.nil? || (!commit.author.nil? && commit.author =~ AUTHOR_REGEXP)) &&
 					(COMMENT_REGEXP.nil? || (!commit.comment.nil? && commit.comment.string =~ COMMENT_REGEXP)) &&
-					(REPOS_REGEXP.nil? || (!commit.repos.nil? && commit.repos =~ REPOS_REGEXP)) &&
 					(DATE_MIN.nil? || (!commit.date.nil? && commit.date >= DATE_MIN)) &&
 					(DATE_MAX.nil? || (!commit.date.nil? && commit.date <= DATE_MAX))
 				)
@@ -91,4 +142,4 @@ find "${@:-.}" -name .git \
 			end
 			dump(c)
 		'\''\'\'''\'\' \
-	| ( echo 'Date,Commit,Repos,ReposShort,Author,Comment' ; sort | uniq )
+	| ( echo 'Date,Commit,Repos,ReposShort,Author,Comment' ; sort | uniq ) >"${OUTPUT_PATH}"
