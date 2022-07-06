@@ -22,6 +22,7 @@ usage() {
 	echo "    -u DATETIME  Only list commits until given DATETIME"
 	echo "    -o PATH      Write output to PATH (default: writes to stdout)"
 	echo "    -d FORMAT    Use FORMAT for commit date output (default: %Y-%m-%d)"
+	echo "    -P           Tell git/grep to treat regexps as PCREs"
 	echo "    -h           Display this help message"
 	echo
 }
@@ -29,7 +30,8 @@ usage() {
 OUTPUT_PATH=/dev/stdout
 REPOS_REGEXP="${REPOS_REGEXP:-.}"
 DATE_FORMAT="${DATE_FORMAT:-%Y-%m-%d}"
-while getopts "a:d:hm:o:r:s:u:" opt; do
+PCRE_FLAG="${PCRE_FLAG:--E}"
+while getopts "a:d:hm:o:Pr:s:u:" opt; do
 	case ${opt} in
 		h)
 			usage
@@ -40,6 +42,9 @@ while getopts "a:d:hm:o:r:s:u:" opt; do
 			;;
 		m)
 			MESSAGE_REGEXP="${OPTARG}"
+			;;
+		P)
+			PCRE_FLAG="-P"
 			;;
 		r)
 			REPOS_REGEXP="${OPTARG}"
@@ -64,11 +69,26 @@ while getopts "a:d:hm:o:r:s:u:" opt; do
 	esac
 done
 shift $((OPTIND -1))
-export OPT_AUTHOR_REGEXP="${AUTHOR_REGEXP}"
-export OPT_MESSAGE_REGEXP="${MESSAGE_REGEXP}"
-export OPT_DATE_MIN="${DATE_MIN}"
-export OPT_DATE_MAX="${DATE_MAX}"
+
 export OPT_DATE_FORMAT="${DATE_FORMAT}"
+
+GIT_LOG_FLAGS="${PCRE_FLAG}"
+if [ -n "${AUTHOR_REGEXP}" ]
+then
+	GIT_LOG_FLAGS="${GIT_LOG_FLAGS} --author='\\''${AUTHOR_REGEXP}'\\''"
+fi
+if [ -n "${MESSAGE_REGEXP}" ]
+then
+	GIT_LOG_FLAGS="${GIT_LOG_FLAGS} --grep='\\''${MESSAGE_REGEXP}'\\''"
+fi
+if [ -n "${DATE_MIN}" ]
+then
+	GIT_LOG_FLAGS="${GIT_LOG_FLAGS} --since='\\''${DATE_MIN}'\\''"
+fi
+if [ -n "${DATE_MAX}" ]
+then
+	GIT_LOG_FLAGS="${GIT_LOG_FLAGS} --until='\\''${DATE_MAX}'\\''"
+fi
 
 find "${@:-.}" -name .git \
 	| (
@@ -77,7 +97,7 @@ find "${@:-.}" -name .git \
 		do
 			REPODIR="$(dirname "${GITDIR}")"
 			pushd "${REPODIR}" >/dev/null
-			GITURL="$(git remote get-url origin 2>/dev/null | grep -P -e "${REPOS_REGEXP}")"
+			GITURL="$(git remote get-url origin 2>/dev/null | grep ${PCRE_FLAG} -e "${REPOS_REGEXP}")"
 			if [ -n "${GITURL}" ]
 			then
 				echo "$(echo -n "${GITURL}" | perl -e 'print unpack("H*",<>)')|$(echo -n "${REPODIR}" | perl -e 'print unpack("H*",<>)')"
@@ -86,7 +106,7 @@ find "${@:-.}" -name .git \
 		done
 	) \
 	| parallel --will-cite -I{} --line-buffer --colsep '\|' \
-		bash -c \''cd "$(perl -e "print pack(\"H*\",\"{2}\")")" && git log | ruby -e '\''\'\'''\''
+		bash -c \''cd "$(perl -e "print pack(\"H*\",\"{2}\")")" && git log '"${GIT_LOG_FLAGS}"' | ruby -e '\''\'\'''\''
 			require "csv"
 			require "stringio"
 			require "date"
@@ -98,22 +118,7 @@ find "${@:-.}" -name .git \
 
 			DATE_FORMAT = ENV["OPT_DATE_FORMAT"] =~ /\S/ ? ENV["OPT_DATE_FORMAT"] : "%Y-%m-%d"
 
-			AUTHOR_REGEXP  = ENV["OPT_AUTHOR_REGEXP"] =~ /\S/ ? Regexp.compile(ENV["OPT_AUTHOR_REGEXP"]) : nil
-			MESSAGE_REGEXP = ENV["OPT_MESSAGE_REGEXP"] =~ /\S/ ? Regexp.compile(ENV["OPT_MESSAGE_REGEXP"]) : nil
-			DATE_MIN       = ENV["OPT_DATE_MIN"] =~ /\S/ ? DateTime.parse(ENV["OPT_DATE_MIN"]) : nil
-			DATE_MAX       = ENV["OPT_DATE_MAX"] =~ /\S/ ? DateTime.parse(ENV["OPT_DATE_MAX"]) : nil
-
-			def is_match(commit)
-				return (
-					(AUTHOR_REGEXP.nil? || (!commit.author.nil? && commit.author =~ AUTHOR_REGEXP)) &&
-					(MESSAGE_REGEXP.nil? || (!commit.message.nil? && commit.message.string =~ MESSAGE_REGEXP)) &&
-					(DATE_MIN.nil? || (!commit.date.nil? && commit.date >= DATE_MIN)) &&
-					(DATE_MAX.nil? || (!commit.date.nil? && commit.date <= DATE_MAX))
-				)
-			end
-			
 			def dump(c)
-				return if !is_match(c)
 				c.date = c.date.strftime(DATE_FORMAT) if !c.date.nil?
 				c.message = c.message.string.gsub(/^\s+/,"").gsub(/[\s\r\n]+/," ").strip if !c.message.nil?
 				c.repos = REPOS
