@@ -40,6 +40,9 @@ while getopts "a:d:hm:o:Pr:s:u:" opt; do
 		a)
 			AUTHOR_REGEXP="${OPTARG}"
 			;;
+		d)
+			DATE_FORMAT="${OPTARG}"
+			;;
 		m)
 			MESSAGE_REGEXP="${OPTARG}"
 			;;
@@ -119,6 +122,7 @@ find "${@:-.}" -name .git \
 			DATE_FORMAT = ENV["OPT_DATE_FORMAT"] =~ /\S/ ? ENV["OPT_DATE_FORMAT"] : "%Y-%m-%d"
 
 			def dump(c)
+				return if c.date.nil? && c.commit !~ /\S/ && c.author !~ /\S/ && c.message !~ /\S/ 
 				c.date = c.date.strftime(DATE_FORMAT) if !c.date.nil?
 				c.message = c.message.string.gsub(/^\s+/,"").gsub(/[\s\r\n]+/," ").strip if !c.message.nil?
 				c.repos = REPOS
