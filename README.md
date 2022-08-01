@@ -8,6 +8,7 @@ A "junk drawer" of miscellaneous scripts I've found useful.
 - `freshwiki.rb` - a simple personal wiki server
 - `historian.sh` - generate a CSV summary of "interesting" Git commits
 - `idea.sh` - start my latest installed IntelliJ
+- `jailbird.sh` - start Thunderbird in a `firejail` sandbox
 - `myip.py` - show your local IP address
 - `nest.py` - start a nested or VNC-based alternate local desktop
 - `selfie.sh` - show a window of the attached camera
