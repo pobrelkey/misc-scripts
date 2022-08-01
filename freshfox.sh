@@ -6,6 +6,7 @@ PROFILE_NAME=default
 USE_MASTER=''
 USE_FIREJAIL=''
 XEPHYR_SIZE=1280x960
+TMPDIR=/tmp
 
 while getopts "hmjxcp:ld:w:" opt; do
 	case ${opt} in
@@ -41,9 +42,13 @@ while getopts "hmjxcp:ld:w:" opt; do
 			;;
 		x)
 			USE_FIREJAIL=x11
+			#TMPDIR="${FRESHFOX_DIR}/.tmp"
+			#mkdir -p "${TMPDIR}"
 			;;
 		j)
 			USE_FIREJAIL=nox11
+			#TMPDIR="${FRESHFOX_DIR}/.tmp"
+			#mkdir -p "${TMPDIR}"
 			;;
 		c)
 			BROWSER='chromium'
@@ -69,7 +74,7 @@ PROFILE_DIR="${FRESHFOX_DIR}/${PROFILE_NAME}/${BROWSER}"
 
 if [ "x${USE_MASTER}" == 'x' ]
 then
-	SCRATCH_DIR="$(mktemp -d -t "freshfox.${PROFILE_NAME}.$$.XXXXXXXXXX")"
+	SCRATCH_DIR="$(mktemp -p "${TMPDIR}" -d -t "freshfox.${PROFILE_NAME}.$$.XXXXXXXXXX")"
 	function finish {
 		rm -rf "${SCRATCH_DIR}"
 	}
