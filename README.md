@@ -2,6 +2,7 @@
 
 A "junk drawer" of miscellaneous scripts I've found useful.
 
+- `dockergc.sh` - remove outdated Docker image versions
 - `fizz.sh` - play soft white noise to mask out ambient sounds
 - `freshfox.sh` - start Firefox or Chromium using an ephemeral profile
 - `freshidea.sh` - start IntelliJ using an ephemeral profile
