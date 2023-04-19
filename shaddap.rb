@@ -43,9 +43,10 @@ def read_log(f)
 	last = DateTime.jd(0)
 	f.each_line do |line|
 		year, month, day = last.year, last.month, last.mday
-		if line.sub!(/^(?:(20\d\d)?-(0[1-9]|1[012]))?-(0[1-9]|[12]\d|3[01]):/, '')
+		if line.sub!(/^(?:(20\d\d)?-(0[1-9]|1[012]))?-(0[1-9]|[12]\d|3[01]):?(?= )/, '')
 			year, month, day = ($1 || year).to_i, ($2 || month).to_i, ($3 || day).to_i
 		end
+		last = DateTime.new(year, month, day)
 		line.scan(/ ([01]\d|2[0-3])([0-5]\d)(?:-([01]\d|2[0-3])([0-5]\d))?(?: \((?:([^\r\n()"\\]+)|("(?:[^"\\]|\\.)+"))\))?/) do
 			begins = DateTime.new(year, month, day, $1.to_i, $2.to_i)
 			ends = $3.nil? ? nil : DateTime.new(year, month, day, $3.to_i, $4.to_i)
