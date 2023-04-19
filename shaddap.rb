@@ -17,7 +17,6 @@ Event = Struct.new(:begins, :ends, :message)
 
 def write_log(f, events)
 	last = DateTime.jd(0)
-	p events
 	events.sort_by{|x| x.begins.to_time.to_f }.each do |i|
 		if i.begins.jd != last.jd && i.begins.year != last.year
 			f << i.begins.strftime("\n%Y-%m-%d: %H%M")
