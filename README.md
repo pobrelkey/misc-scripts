@@ -15,6 +15,7 @@ A "junk drawer" of miscellaneous scripts I've found useful.
 - `nest.py` - start a nested or VNC-based alternate local desktop
 - `pdfcat.rb` - concatenate PDF files while eliminating redundant resources
 - `selfie.sh` - show a window of the attached camera
+- `shaddap.rb` - keep a log of when an event happens
 - `sqldeveloper.sh` - start my latest installed SQLDeveloper
 - `unvpn.sh` - add routing rule to access a host directly and not via the VPN 
 
