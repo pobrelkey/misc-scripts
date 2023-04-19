@@ -59,6 +59,7 @@ end
 
 
 REMIND_DEFAULT = 5
+DAYS_DEFAULT = 7
 DEFAULT_FILE = 'default'
 FILENAME_TEMPLATE = '~/.local/share/shaddap_rb/%s.txt'
 
@@ -72,8 +73,8 @@ OptionParser.new do |op|
 	op.on('-t', '--time DATETIME', DateTime, 'event happened at DATETIME') {|x| event_time = x }
 	op.on('-c', '--continue', 'last event is Continuing') { cont = true }
 	op.on('-u', '--undo', 'Undo recording of last event') { undo = true }
-	op.on('-d', '--days DAYS', Float, 'show event count over past DAYS Days') {|x| count_days = x }
-	op.on('-D', '--detailed DAYS', Float, 'show Detailed report of events over past DAYS days') {|x| detail_days = x }
+	op.on('-d', '--days [DAYS]', Float, 'show event count over past DAYS Days (default: %d)' % DAYS_DEFAULT) {|x| count_days = x || DAYS_DEFAULT }
+	op.on('-D', '--detailed [DAYS]', Float, 'show Detailed report of events over past DAYS days (default: %d)' % DAYS_DEFAULT) {|x| detail_days = x || DAYS_DEFAULT }
 	op.on('-r', '--remind [MINS]', Float, 'Remind in MINS minutes (pause then play a tone; default: %d)' % REMIND_DEFAULT) {|x| remind_mins = x.nil? ? REMIND_DEFAULT : x }
 end.parse!
 
@@ -87,13 +88,14 @@ end
 FileUtils.mkdir_p(File.dirname(filename))
 events = File.exist?(filename) ? File.open(filename,'r'){|f| read_log(f) } : []
 
+event_time = DateTime.new(event_time.year, event_time.month, event_time.mday, event_time.hour, event_time.minute)  # strip offset
+
 if !detail_days.nil? || !count_days.nil?
-	days == detail_days.nil? ? count_days : detail_days
-	events.select!{|x| x.begins >= event_time - days && x.begins < event_time }
-	write_times(STDOUT, events) if !detail_days.nil?
+	days = detail_days.nil? ? count_days : detail_days
+	events.select!{|x| x.begins >= event_time - days && x.begins <= event_time }
+	write_log(STDOUT, events) if !detail_days.nil?
 	puts(events.size)
 else
-	event_time = DateTime.new(event_time.year, event_time.month, event_time.mday, event_time.hour, event_time.minute)  # strip offset
 	if cont
 		events.last.ends = event_time
 		events.last.message = [events.last.message, message].compact.join('; ') if !message.nil?
