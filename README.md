@@ -2,6 +2,7 @@
 
 A "junk drawer" of miscellaneous scripts I've found useful.
 
+- `correcthorse.rb` - generate [XKCD 936](https://xkcd.com/936/) style random passphrases
 - `dockergc.sh` - remove outdated Docker image versions
 - `fizz.sh` - play soft white noise to mask out ambient sounds
 - `freshfox.sh` - start Firefox or Chromium using an ephemeral profile
