@@ -10,16 +10,20 @@ require 'optparse'
 
 # 1296 words from the short variant of the EFF's Diceware lists:
 #     https://www.eff.org/deeplinks/2016/07/new-wordlists-random-passphrases
+# ...with words I judged problematic for various reasons (trade/proper names,
+# possible non-words in English, homophones, words with uncertain spellings,
+# words which might give fodder to an adversary looking to make trouble)
+# replaced with short words from the longer variant of the list
 WORDS = %w(
 	acid acorn acre acts afar affix aged agent agile aging agony ahead
 	aide aids aim ajar alarm alias alibi alien alike alive aloe aloft
 	aloha alone amend amino ample amuse angel anger angle ankle apple
 	april apron aqua area arena argue arise armed armor army aroma
-	array arson art ashen ashes atlas atom attic audio avert avoid
+	array ahoy art ashen ashes atlas atom attic audio avert avoid
 	awake award awoke axis bacon badge bagel baggy baked baker balmy
 	banjo barge barn bash basil bask batch bath baton bats blade
 	blank blast blaze bleak blend bless blimp blink bloat blob blog
-	blot blunt blurt blush boast boat body boil bok bolt boned boney
+	blot blunt blurt blush boast boat body boil dork bolt boned boney
 	bonus bony book booth boots boss botch both boxer breed bribe
 	brick bride brim bring brink brisk broad broil broke brook broom
 	brush buck bud buggy bulge bulk bully bunch bunny bunt bush bust
@@ -42,10 +46,10 @@ WORDS = %w(
 	doing doll dome donor donut dose dot dove down dowry doze drab
 	drama drank draw dress dried drift drill drive drone droop drove
 	drown drum dry duck duct dude dug duke duo dusk dust duty dwarf
-	dwell eagle early earth easel east eaten eats ebay ebony ebook
+	dwell eagle early earth easel east eaten eats gab ebony irk
 	echo edge eel eject elbow elder elf elk elm elope elude elves
-	email emit empty emu enter entry envoy equal erase error erupt
-	essay etch evade even evict evil evoke exact exit fable faced
+	lard emit empty emu enter entry envoy equal erase error erupt
+	essay etch evade even evict oaf evoke exact exit fable faced
 	fact fade fall false fancy fang fax feast feed femur fence fend
 	ferry fetal fetch fever fiber fifth fifty film filth final finch
 	fit five flag flaky flame flap flask fled flick fling flint flip
@@ -60,17 +64,17 @@ WORDS = %w(
 	guy habit half halo halt happy harm hash hasty hatch hate haven
 	hazel hazy heap heat heave hedge hefty help herbs hers hub hug
 	hula hull human humid hump hung hunk hunt hurry hurt hush hut
-	ice icing icon icy igloo image ion iron islam issue item ivory
+	ice icing icon icy igloo image ion iron oink issue item ivory
 	ivy jab jam jaws jazz jeep jelly jet jiffy job jog jolly jolt
 	jot joy judge juice juicy july jumbo jump junky juror jury keep
-	keg kept kick kilt king kite kitty kiwi knee knelt koala kung
+	keg kept kick kilt king kite kitty kiwi knee knelt koala judo
 	ladle lady lair lake lance land lapel large lash lasso last latch
 	late lazy left legal lemon lend lens lent level lever lid life
 	lift lilac lily limb limes line lint lion lip list lived liver
 	lunar lunch lung lurch lure lurk lying lyric mace maker malt mama
-	mango manor many map march mardi marry mash match mate math moan
+	mango manor many map march mutt marry mash match mate math moan
 	mocha moist mold mom moody mop morse most motor motto mount mouse
-	mousy mouth move movie mower mud mug mulch mule mull mumbo mummy
+	mousy mouth move movie mower mud mug mulch mule mull myth mummy
 	mural muse music musky mute nacho nag nail name nanny nap navy
 	near neat neon nerd nest net next niece ninth nutty oak oasis
 	oat ocean oil old olive omen onion only ooze opal open opera opt
@@ -89,7 +93,7 @@ WORDS = %w(
 	rigid rigor rinse riot ripen rise risk ritzy rival river roast
 	robe robin rock rogue roman romp rope rover royal ruby rug ruin
 	rule runny rush rust rut sadly sage said saint salad salon salsa
-	salt same sandy santa satin sauna saved savor sax say scale scam
+	salt same sandy santa satin sauna saved savor sax say scale oops
 	scan scare scarf scary scoff scold scoop scoot scope score scorn
 	scout scowl scrap scrub scuba scuff sect sedan self send sepia
 	serve set seven shack shade shady shaft shaky sham shape share
@@ -100,7 +104,7 @@ WORDS = %w(
 	slate slaw sled sleek sleep sleet slept slice slick slimy sling
 	slip slit slob slot slug slum slurp slush small smash smell smile
 	smirk smog snack snap snare snarl sneak sneer sniff snore snort
-	snout snowy snub snuff speak speed spend spent spew spied spill
+	snout snowy snub snuff speak speed spend spent spew pox spill
 	spiny spoil spoke spoof spool spoon sport spot spout spray spree
 	spur squad squat squid stack staff stage stain stall stamp stand
 	stank stark start stash state stays steam steep stem step stew
@@ -113,16 +117,16 @@ WORDS = %w(
 	thorn those throb thud thumb thump thus tiara tidal tidy tiger
 	tile tilt tint tiny trace track trade train trait trap trash tray
 	treat tree trek trend trial tribe trick trio trout truce truck
-	trump trunk try tug tulip tummy turf tusk tutor tutu tux tweak
+	rare trunk try tug tulip tummy turf tusk tutor tutu tux tweak
 	tweet twice twine twins twirl twist uncle uncut undo unify union
-	unit untie upon upper urban used user usher utter value vapor vegan
-	venue verse vest veto vice video view viral virus visa visor vixen
+	unit untie upon upper urban used user usher utter value vapor sly
+	venue verse vest veto vice video view viral spud visa visor vixen
 	vocal voice void volt voter vowel wad wafer wager wages wagon wake
 	walk wand wasp watch water wavy wheat whiff whole whoop wick widen
-	widow width wife wifi wilt wimp wind wing wink wipe wired wiry
-	wise wish wispy wok wolf womb wool woozy word work worry wound
-	woven wrath wreck wrist xerox yahoo yam yard year yeast yelp
-	yield yodel yoga yo-yo yoyo yummy zebra zero zesty zippy zone zoom
+	widow width wife twig wilt wimp wind wing wink wipe wired wiry
+	wise wish wispy woof wolf womb wool woozy word work worry wound
+	woven wrath wreck wrist wow zap yam yard year yeast yelp
+	yield yodel yoga zen zit yummy zebra zero zesty zippy zone zoom
 )
 
 # default number of bits of entropy for the password
