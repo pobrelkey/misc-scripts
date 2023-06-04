@@ -136,7 +136,7 @@ bit_count = DEFAULT_BITS
 words = WORDS
 
 OptionParser.new do |opts|
-	opts.banner = "XKCD 936 style passphrase generator\nUsage: #{File.basename(__FILE__)} [options]"
+	opts.banner = "Random passphrase generator in the style of https://xkcd.com/936/\nUsage: #{File.basename(__FILE__)} [options]"
 
 	opts.on("-b", "--bits BITS", Float, "bits of entropy in output (default: #{DEFAULT_BITS})") do |v|
 		bit_count = v.to_f
