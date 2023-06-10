@@ -37,13 +37,12 @@ fi
 
 if [ -z "${2}" ]
 then
-    REMOTE_URI="${1#*::}"
+    REMOTE_URI="${1}"
 else
-    REMOTE_URI="${2#*::}"
+    REMOTE_URI="${2}"
 fi
 
 REMOTE_COPY_DIR="${GIT_DIR}/rclone-plain/remotes/${REMOTE_URI/://}"
-REMOTE_COPY_DIR="${REMOTE_COPY_DIR//\/\///}"
 
 while true
 do
