@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+
+#
+#  git-remote-rclone-plain: pull and push to Git remotes via rclone
+#
+#  Example usages:
+#
+#      git clone rclone-plain::name_of_remote:path/to/repository.git
+#      git remote add foo rclone-plain::foo:path/to/foo.git
+#
+#  The remote location is assumed to contain a Git repository -
+#  preferably a bare repository (ordinary repositories should work OK
+#  but using these as a remote isn't good practice).
+#
+#  A full copy of the remote repository is kept locally, which is
+#  updated in both directions using "rclone sync".  As such, situations
+#  where multiple users may access the remote repository concurrently
+#  should be avoided.
+#
+#  This script would have just been called "git-remote-rclone", but
+#  that name is already taken on GitHub and PyPI by another script
+#  which uses a non-standard remote repository format.
+#
+
+
+set -e
+
+if [[ -e "${GIT_DIR}/rclone-plain/rclone.conf" ]]
+then
+    export RCLONE_CONFIG="${GIT_DIR}/rclone-plain/rclone.conf"
+fi
+if [[ -e "${GIT_DIR}/rclone-plain/config.env" ]]
+then
+    . "${GIT_DIR}/rclone-plain/config.env"
+fi
+
+if [ -z "${2}" ]
+then
+    REMOTE_URI="${1#*::}"
+else
+    REMOTE_URI="${2#*::}"
+fi
+
+REMOTE_COPY_DIR="${GIT_DIR}/rclone-plain/remotes/${REMOTE_URI/://}"
+REMOTE_COPY_DIR="${REMOTE_COPY_DIR//\/\///}"
+
+while true
+do
+
+    read LINE
+ 
+    if [ -z "${LINE}" ]
+    then
+        exit 0
+    fi
+ 
+    CMD="${LINE%% *}"
+    ARG="${LINE#* }"
+ 
+    case "${CMD}" in
+ 
+        capabilities)
+            echo connect
+            echo
+            ;;
+ 
+        connect)
+            mkdir -p "${REMOTE_COPY_DIR}" 1>&2
+            rclone sync --create-empty-src-dirs "${REMOTE_URI}/" "${REMOTE_COPY_DIR}/" 1>&2
+
+            echo
+            "${ARG}" "${REMOTE_COPY_DIR}"
+
+            if [[ "${ARG}" != git-upload-pack ]]
+            then
+                rclone sync --create-empty-src-dirs "${REMOTE_COPY_DIR}/" "${REMOTE_URI}/" 1>&2
+            fi
+
+            exit 0
+            ;;
+
+        *)
+            echo "error unrecognized command"
+            exit 1
+            ;;
+ 
+    esac
+ 
+done
