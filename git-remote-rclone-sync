@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+
+
+#
+#  git-remote-rclone-sync/-mount: pull and push to Git remotes via rclone
+#
+#  This remote can operate in either of two ways:
+#
+#   1. Using "rclone sync", which involves keeping a full local copy of
+#      the remote repository.  This is the default, and should in most
+#      cases result in fewer accesses/less egress bandwith used.
+#
+#   2. Using "rclone mount" to access the remote repository via a FUSE
+#      filesystem mount.  This trades less local disk usage for more
+#      intensive network access.
+#
+#  Example usages (sync mode):
+#
+#      git clone rclone-sync::name_of_remote:path/to/repository.git
+#      git remote add foo rclone-sync::foo:path/to/foo.git
+#
+#  Example usages (mount mode):
+#
+#      git clone rclone-mount::name_of_remote:path/to/repository.git
+#      git remote add foo rclone-mount::foo:path/to/foo.git
+#
+#  The remote location is assumed to contain a Git repository -
+#  preferably a bare repository (ordinary repositories should work OK
+#  but using these as a remote isn't good practice).
+#
+#  Neither of the two modes of operation attempts to detect or remedy
+#  situations where another process is accessing the remote repository
+#  concurrently.  To avoid corruption, only use this tool in use cases
+#  where concurrent access is unlikely, or implement your own mechanism
+#  to arbitrate access.
+#  
+#  This script would have just been called "git-remote-rclone", but
+#  that name is already taken on GitHub and PyPI by another script
+#  which uses a non-standard remote repository format.
+#
+
+
+set -e
+
+REMOTE_SCHEME="$(basename "${0}")"
+REMOTE_SCHEME="${REMOTE_SCHEME#git-remote-}"
+
+if [[ -e "${GIT_DIR}/${REMOTE_SCHEME}/rclone.conf" ]]
+then
+    export RCLONE_CONFIG="${GIT_DIR}/${REMOTE_SCHEME}/rclone.conf"
+fi
+if [[ -e "${GIT_DIR}/${REMOTE_SCHEME}/config.env" ]]
+then
+    . "${GIT_DIR}/${REMOTE_SCHEME}/config.env"
+fi
+
+if [[ -z "${2}" ]]
+then
+    REMOTE_URI="${1}"
+else
+    REMOTE_URI="${2}"
+fi
+
+REMOTE_COPY_DIR="${GIT_DIR}/${REMOTE_SCHEME}/remotes/${REMOTE_URI/://}"
+
+while true
+do
+
+    read LINE
+ 
+    if [[ -z "${LINE}" ]]
+    then
+        exit 0
+    fi
+ 
+    CMD="${LINE%% *}"
+    ARG="${LINE#* }"
+ 
+    case "${CMD}" in
+ 
+        capabilities)
+            echo connect
+            echo
+            ;;
+ 
+        connect)
+            mkdir -p "${REMOTE_COPY_DIR}" 1>&2
+            if [[ "${REMOTE_SCHEME%mount}" != "${REMOTE_SCHEME}" ]]
+            then
+                function umount_rclone() {
+                    # TODO: next line needs to be different on non-Linux OSes
+                    fusermount -uz "${REMOTE_COPY_DIR}/" 1>&2
+                }
+                trap umount_rclone EXIT
+                rclone mount "${REMOTE_URI}/" "${REMOTE_COPY_DIR}/" 1>&2 &
+
+                # HACK: wait up to 10s until remote is actually mounted
+                for i in $(seq 1 100)
+                do
+                    if [[ -e "${REMOTE_COPY_DIR}/HEAD" ]] || [[ -e "${REMOTE_COPY_DIR}/.git/HEAD" ]]
+                    then
+                        break
+                    fi
+                    sleep 0.1
+                done
+            else
+                rclone sync --create-empty-src-dirs "${REMOTE_URI}/" "${REMOTE_COPY_DIR}/" 1>&2
+            fi
+
+            echo
+            "${ARG}" "${REMOTE_COPY_DIR}"
+
+            if [[ "${ARG}" != git-upload-pack ]] && [[ "${REMOTE_SCHEME%mount}" == "${REMOTE_SCHEME}" ]]
+            then
+                rclone sync --create-empty-src-dirs "${REMOTE_COPY_DIR}/" "${REMOTE_URI}/" 1>&2
+            fi
+
+            exit 0
+            ;;
+
+        *)
+            echo "error unrecognized command"
+            exit 1
+            ;;
+ 
+    esac
+ 
+done
