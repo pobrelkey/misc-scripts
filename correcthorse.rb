@@ -138,10 +138,10 @@ words = WORDS
 OptionParser.new do |opts|
 	opts.banner = "Random passphrase generator in the style of https://xkcd.com/936/\nUsage: #{File.basename(__FILE__)} [options]"
 
-	opts.on("-b", "--bits BITS", Float, "bits of entropy in output (default: #{DEFAULT_BITS})") do |v|
+	opts.on("-b", "--bits BITS", Float, "Bits of entropy in output (default: #{DEFAULT_BITS})") do |v|
 		bit_count = v.to_f
 	end
-	opts.on("-w", "--words FILE", String, "file ") do |v|
+	opts.on("-w", "--words FILE", String, "file containing Words to choose randomly") do |v|
 		words = File.read(v).scan(/(?:^|(?<=\s))([a-z]+)(?:$|(?=\s))/).flatten
 	end
 end.parse!
