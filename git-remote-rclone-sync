@@ -42,6 +42,7 @@
 
 set -e
 
+
 # If the script is invoked with --pasword-helper as the first argument,
 # use git-credential to prompt for a password to the rclone config file.
 if [[ "${1}" == --password-helper ]]
@@ -63,18 +64,24 @@ fi
 REMOTE_SCHEME="$(basename "${0}")"
 REMOTE_SCHEME="${REMOTE_SCHEME#git-remote-}"
 
+# If an rclone config file exists at .git/rclone-sync/rclone.conf,
+# use that in preference to the system rclone config file.
 if [[ -e "${GIT_DIR}/${REMOTE_SCHEME}/rclone.conf" ]]
 then
     export RCLONE_CONFIG="${GIT_DIR}/${REMOTE_SCHEME}/rclone.conf"
 fi
+
+# Source .git/rclone-sync/rclone.conf if it exists, to optionally set
+# environment variables used by rclone.
 if [[ -e "${GIT_DIR}/${REMOTE_SCHEME}/config.env" ]]
 then
     . "${GIT_DIR}/${REMOTE_SCHEME}/config.env"
 fi
 
-# Tell rclone to invoke this script with --password-helper if it needs
-# a password to the config file.  (Rclone's own prompt won't work.)
-export RCLONE_PASSWORD_COMMAND="\"${0//\"/\"\"}\" --password-helper \"${RCLONE_CONFIG//\"/\"\"}\""
+# If no rclone password helper is already specified, tell rclone to
+# invoke this script with --password-helper if it needs a password for
+# its config file.  (Rclone's built-in password prompt won't work.)
+export RCLONE_PASSWORD_COMMAND="${RCLONE_PASSWORD_COMMAND:-\"${0//\"/\"\"}\" --password-helper \"${RCLONE_CONFIG//\"/\"\"}\"}"
 
 if [[ -z "${2}" ]]
 then
