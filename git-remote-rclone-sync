@@ -42,6 +42,24 @@
 
 set -e
 
+# If the script is invoked with --pasword-helper as the first argument,
+# use git-credential to prompt for a password to the rclone config file.
+if [[ "${1}" == --password-helper ]]
+then
+	RCLONE_CONFIG="${2:-$(rclone config file | sed -ne '/^\//{p;q}')}"
+	(
+		echo protocol=rclone-config
+		echo host=
+		echo path="${RCLONE_CONFIG#/}"
+		echo username=
+		echo 
+	) \
+		| git credential fill \
+		| sed -ne 's/^password=//p'
+	exit 0
+fi
+
+
 REMOTE_SCHEME="$(basename "${0}")"
 REMOTE_SCHEME="${REMOTE_SCHEME#git-remote-}"
 
@@ -53,6 +71,10 @@ if [[ -e "${GIT_DIR}/${REMOTE_SCHEME}/config.env" ]]
 then
     . "${GIT_DIR}/${REMOTE_SCHEME}/config.env"
 fi
+
+# Tell rclone to invoke this script with --password-helper if it needs
+# a password to the config file.  (Rclone's own prompt won't work.)
+export RCLONE_PASSWORD_COMMAND="\"${0//\"/\"\"}\" --password-helper \"${RCLONE_CONFIG//\"/\"\"}\""
 
 if [[ -z "${2}" ]]
 then
