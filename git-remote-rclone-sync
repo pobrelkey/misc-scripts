@@ -133,7 +133,7 @@ do
                     sleep 0.1
                 done
             else
-                find "${REMOTE_COPY_DIR}" -type f -not -writable | xargs -r chmod +x
+                find "${REMOTE_COPY_DIR}" -type f -not -writable | xargs -r chmod u+w
                 rclone sync --create-empty-src-dirs "${REMOTE_URI}/" "${REMOTE_COPY_DIR}/" 1>&2
             fi
 
