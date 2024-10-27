@@ -8,9 +8,6 @@
 
 set -e
 
-#ORIGIN_BRANCH="$(git for-each-ref --format='%(upstream:short)' $(git symbolic-ref -q HEAD) | head -n 1)"
-#ORIGIN_BRANCH="$(git rev-parse --abbrev-ref HEAD@{upstream})"
-
 git commit "$@"
 
 git fetch
